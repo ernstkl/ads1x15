@@ -126,16 +126,16 @@ _RATES = (
     _DR_860SPS    # - /860 samples per Second
 )
 
-# Exact conversion delays in ms for the ADS1115 based on the sample rate
+# Conversion delays in ms for the ADS1115 (including +10% clock tolerance + 1ms margin, rounded up)
 _CONVERSION_DELAYS = (
-        125,  # 8 SPS
-        62.5, # 16 SPS
-        31.25,# 32 SPS
-        15.63,# 64 SPS
-        7.81, # 128 SPS
-        4.0,  # 250 SPS
-        2.1,  # 475 SPS
-        1.16  # 860 SPS
+        139,  # 8 SPS (125ms + 10% + 1ms)
+        70,   # 16 SPS (62.5ms + 10% + 1ms)
+        36,   # 32 SPS (31.25ms + 10% + 1ms)
+        19,   # 64 SPS (15.63ms + 10% + 1ms)
+        10,   # 128 SPS (7.81ms + 10% + 1ms)
+        6,    # 250 SPS (4.0ms + 10% + 1ms)
+        4,    # 475 SPS (2.1ms + 10% + 1ms)
+        3     # 860 SPS (1.16ms + 10% + 1ms)
     )
 
 
@@ -189,9 +189,8 @@ class ADS1115:
                                  _MODE_SINGLE | _OS_SINGLE | _GAINS[self.gain] |
                                  _CHANNELS[(channel1, channel2)]))
 
-            # delay from data-sheet + 1 ms margin
-            base_delay = delays[rate] if rate < len(delays) else delays[4]
-            await asyncio.sleep_ms(int(base_delay + 1))
+            # delay from data-sheet + tolerance
+            await asyncio.sleep_ms(delays[rate])
 
             res = self._read_register(_REGISTER_CONVERT)
             return res if res < 32768 else res - 65536
@@ -266,14 +265,14 @@ class ADS1114(ADS1115):
 
 class ADS1015(ADS1115):
     _CONVERSION_DELAYS_ADS1015 = (
-        7.81, # 128 SPS
-        4.0,  # 250 SPS
-        2.04, # 490 SPS
-        1.09, # 920 SPS
-        0.625,# 1600 SPS
-        0.4,  # 2400 SPS
-        0.3,  # 3300 SPS
-        1.16  # 860 SPS
+        10,   # 128 SPS (7.81ms + 10% + 1ms)
+        6,    # 250 SPS (4.0ms + 10% + 1ms)
+        4,    # 490 SPS (2.04ms + 10% + 1ms)
+        3,    # 920 SPS (1.09ms + 10% + 1ms)
+        2,    # 1600 SPS (0.625ms + 10% + 1ms)
+        2,    # 2400 SPS (0.4ms + 10% + 1ms)
+        2,    # 3300 SPS (0.3ms + 10% + 1ms)
+        3     # 860 SPS (1.16ms + 10% + 1ms)
     )
 
     def __init__(self, i2c, address=0x48, gain=1):
