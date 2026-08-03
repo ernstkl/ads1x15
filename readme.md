@@ -1,4 +1,4 @@
-﻿# Driver for the ADS1015/ADS1115 Analogue-Digital Converter
+# Driver for the ADS1015/ADS1115 Analogue-Digital Converter
 
 This driver consists mostly of the work of Radomir Dopieralski (@deshipu).
 I added a few functions and changed the existing ones so it matches better
@@ -39,6 +39,11 @@ or
 ```
 adc = ADS1015(i2c, address, gain)
 ```
+For interrupt-driven async applications, the standalone `ads1x15_async` module provides `ADS1115Async` which requires a `ready_pin` connected to the ALERT/RDY pin:
+```python
+adc = ADS1115Async(i2c, address, gain, ready_pin)
+```
+
 The default value for the address is 72, for gain is 0. Gain is an index into a
 table. It defines the full range of the ADC.  Acceptable values are:
 ```
@@ -77,6 +82,35 @@ at 80 MHz. Slower conversion yields in a less noisy result.
 The data sheet figures of the ads1x15 are given for the slowest sample rate.
 The value returned is a signed integer of the raw ADC value. That value can be converted to a voltage with the method raw_to_v().
 
+### adc.aioread()
+```python
+value = await adc.aioread([rate, [channel1[, channel2]]])
+```
+
+There are two implementations of this method depending on which driver file is imported:
+
+1. **Standard Driver (`ads1x15.py`)**:
+   Non-blocking using cooperative sleep. It uses an `asyncio.Lock` to serialize concurrent requests, starts the conversion, and sleeps (`await asyncio.sleep_ms`) for the duration of the conversion delay (based on the sample rate) before reading the result.
+
+2. **Async/Interrupt-driven subclass (`ads1x15_async.py`)**:
+   Specifically for the `ADS1115Async` class. It uses the physical **ALERT/RDY** pin connected to a GPIO pin on the microcontroller. It blocks the coroutine using an `asyncio.ThreadSafeFlag` until the ADC asserts its conversion-ready signal on the ALERT/RDY pin (which triggers a falling-edge pin interrupt).
+   
+   To use this, import `ADS1115Async` and pass a configured `machine.Pin` as `ready_pin` to the constructor:
+   ```python
+   from machine import I2C, Pin
+   from ads1x15_async import ADS1115Async
+   import asyncio
+
+   i2c = I2C(0, scl=Pin(12), sda=Pin(11), freq=400000)
+   adc = ADS1115Async(i2c, address=0x48, gain=1, ready_pin=Pin(9, Pin.IN))
+
+   async def main():
+       val = await adc.aioread(rate=4, channel1=0)
+       print(val)
+
+   asyncio.run(main())
+   ```
+   *Note: `ready_pin` is required for `ADS1115Async`. Calling `aioread()` without it will raise a `RuntimeError`.*
 ###  adc.set_conv and adc.read_rev()
 
 Pair of methods for a time optimized sequential reading triggered by a time.
