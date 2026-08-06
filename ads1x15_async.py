@@ -200,6 +200,6 @@ class ADS1115Async:
             ))
             # Block this coroutine until the IRQ fires; other coroutines run freely
             await self._ready_flag.wait()
+            res = self._read_register(_REGISTER_CONVERT)
 
-        res = self._read_register(_REGISTER_CONVERT)
         return res if res < 32768 else res - 65536
