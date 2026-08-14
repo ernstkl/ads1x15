@@ -39,8 +39,9 @@ or
 ```
 adc = ADS1015(i2c, address, gain)
 ```
-For interrupt-driven async applications, the standalone `ads1x15_async` module provides `ADS1115Async` which requires a `ready_pin` connected to the ALERT/RDY pin:
+For interrupt-driven async applications, the `ADS1115Async` class requires a `ready_pin` connected to the ALERT/RDY pin:
 ```python
+from ads1x15 import ADS1115Async
 adc = ADS1115Async(i2c, address, gain, ready_pin)
 ```
 
@@ -87,14 +88,14 @@ The value returned is a signed integer of the raw ADC value. That value can be c
 value = await adc.aioread([rate, [channel1[, channel2]]])
 ```
 
-This method is implemented by the **Async/Interrupt-driven driver (`ads1x15_async.py`)** specifically for the `ADS1115Async` class. Since only the ADS1115 model supports the physical ALERT/RDY pin conversion-ready signal in hardware, only this model is supported for interrupt-driven async operation.
+This method is implemented specifically for the `ADS1115Async` class. Since only the ADS1115 model supports the physical ALERT/RDY pin conversion-ready signal in hardware, only this model is supported for interrupt-driven async operation.
 
 It uses the physical **ALERT/RDY** pin connected to a GPIO pin on the microcontroller. It blocks the coroutine using an `asyncio.ThreadSafeFlag` until the ADC asserts its conversion-ready signal on the ALERT/RDY pin (which triggers a falling-edge pin interrupt).
 
-To use this, import `ADS1115Async` and pass a configured `machine.Pin` as `ready_pin` to the constructor:
+To use this, import `ADS1115Async` from `ads1x15` and pass a configured `machine.Pin` as `ready_pin` to the constructor:
 ```python
 from machine import I2C, Pin
-from ads1x15_async import ADS1115Async
+from ads1x15 import ADS1115Async
 import asyncio
 
 i2c = I2C(0, scl=Pin(12), sda=Pin(11), freq=400000)
