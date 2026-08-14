@@ -146,7 +146,7 @@ class ADS1115Async:
             raise ValueError("ready_pin is required for ADS1115Async")
         self._ready_pin = ready_pin
         # ALERT/RDY is active-low; pull-up keeps the line stable between reads
-        self._ready_pin.init(pull=machine.Pin.PULL_UP)
+        self._ready_pin.init(mode=machine.Pin.IN, pull=machine.Pin.PULL_UP)
         # Thread-safe flag is the correct bridge between an IRQ and asyncio
         self._ready_flag = asyncio.ThreadSafeFlag()
         # Attach falling-edge IRQ (pin goes low when conversion is ready)
@@ -163,13 +163,22 @@ class ADS1115Async:
         """IRQ handler – must be minimal; only sets the flag."""
         self._ready_flag.set()
 
-    def __del__(self):
-        """Disable the IRQ when the object is reclaimed."""
+    def deinit(self):
+        """Disable the IRQ and break the reference cycle."""
         if hasattr(self, "_ready_irq") and self._ready_irq is not None:
             try:
                 self._ready_irq.disable()
             except Exception:
                 pass
+            try:
+                self._ready_pin.irq(handler=None)
+            except Exception:
+                pass
+            self._ready_irq = None
+
+    def __del__(self):
+        """Clean up resources when the object is reclaimed."""
+        self.deinit()
 
     def _write_register(self, register, value):
         self.temp2[0] = value >> 8
