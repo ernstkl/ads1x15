@@ -191,6 +191,9 @@ class ADS1115Async:
         are serialised correctly.
         """
         async with self._lock:
+            # Clear any previously set flag (e.g. from noise or previous reads)
+            # before starting the conversion.
+            self._ready_flag.clear()
             # Start single-shot conversion; CQUE_1CONV keeps ALERT/RDY enabled
             self._write_register(_REGISTER_CONFIG, (
                 _CQUE_1CONV | _CLAT_NONLAT |
