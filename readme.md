@@ -18,30 +18,48 @@ connected too, and obviously VDD, GND and the analogue input(2). You might also
 set the address pin to low (address = 72) or high (address = 73).
 
 
-## Class
+## Classes and Modules
 
-The driver contains the ADS1115 class and the derived ADS1114, ADS1113 and
-ADS1015 classes. Since the these devices only differ by the minor parameters
-link the number of channels or conversion size, the same methods can be applied,
-with different interpretation of the parameters.
+The base driver is provided in `ads1x15.py` containing the `ADS1115` class. To optimize RAM usage on memory-constrained microcontrollers, the derived classes reside in separate modules:
+
+* `ads1x15.py`: `ADS1115`
+* `ads1015.py`: `ADS1015`
+* `ads1113.py`: `ADS1113`
+* `ads1114.py`: `ADS1114`
+* `ads1115_async.py`: `ADS1115Async`
+
+You can import each class from its dedicated module (recommended for minimal RAM usage):
+```python
+from ads1x15 import ADS1115
+# or
+from ads1015 import ADS1015
+# or
+from ads1113 import ADS1113
+# or
+from ads1114 import ADS1114
+# or (for interrupt-driven async)
+from ads1115_async import ADS1115Async
 ```
+*(Note: For backwards compatibility, `from ads1x15 import ADS1015, ...` also works as long as the respective module file is uploaded to the device.)*
+
+Instantiation:
+```python
 adc = ADS1115(i2c, address, gain)
 ```
 or
-```
+```python
 adc = ADS1114(i2c, address, gain)
 ```
 or
-```
+```python
 adc = ADS1113(i2c, address)
 ```
 or
-```
+```python
 adc = ADS1015(i2c, address, gain)
 ```
-For interrupt-driven async applications, the `ADS1115Async` class requires a `ready_pin` connected to the ALERT/RDY pin:
+or (requires a `ready_pin` connected to the ALERT/RDY pin):
 ```python
-from ads1x15 import ADS1115Async
 adc = ADS1115Async(i2c, address, gain, ready_pin)
 ```
 

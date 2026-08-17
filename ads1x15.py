@@ -197,127 +197,32 @@ class ADS1115:
         res = self._read_register(_REGISTER_CONVERT)
         return res if res < 32768 else res - 65536
 
+try:
+    from ads1015 import ADS1015
+except ImportError:
+    class ADS1015:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("ADS1015 requires 'ads1015.py' on the device.")
 
-class ADS1113(ADS1115):
-    def __init__(self, i2c, address=0x48):
-        super().__init__(i2c, address, 1)
+try:
+    from ads1113 import ADS1113
+except ImportError:
+    class ADS1113:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("ADS1113 requires 'ads1113.py' on the device.")
 
-    def raw_to_v(self, raw):
-        return super().raw_to_v(raw)
+try:
+    from ads1114 import ADS1114
+except ImportError:
+    class ADS1114:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("ADS1114 requires 'ads1114.py' on the device.")
 
-    def read(self, rate=4):
-        return super().read(rate, 0, 1)
+try:
+    from ads1115_async import ADS1115Async
+except ImportError:
+    class ADS1115Async:
+        def __init__(self, *args, **kwargs):
+            raise ImportError("ADS1115Async requires 'ads1115_async.py' on the device.")
 
-    def alert_start(self, rate=4, threshold_high=0x4000, threshold_low=0, latched=False):
-        return super().alert_start(rate, 0, 1, threshold_high, threshold_low, latched)
-
-    def alert_read(self):
-        return super().alert_read()
-
-
-class ADS1114(ADS1115):
-    def __init__(self, i2c, address=0x48, gain=1):
-        super().__init__(i2c, address, gain)
-
-    def raw_to_v(self, raw):
-        return super().raw_to_v(raw)
-
-    def read(self, rate=4):
-        return super().read(rate, 0, 1)
-
-    def alert_start(self, rate=4, threshold_high=0x4000, threshold_low=0, latched=False):
-        return super().alert_start(rate, 0, 1, threshold_high,
-            threshold_low, latched)
-
-    def alert_read(self):
-        return super().alert_read()
-
-
-class ADS1015(ADS1115):
-    def __init__(self, i2c, address=0x48, gain=1):
-        super().__init__(i2c, address, gain)
-
-    def raw_to_v(self, raw):
-        return super().raw_to_v(raw << 4)
-
-    def read(self, rate=4, channel1=0, channel2=None):
-        return super().read(rate, channel1, channel2) >> 4
-
-    def alert_start(self, rate=4, channel1=0, channel2=None, threshold_high=0x400,
-        threshold_low=0, latched=False):
-        return super().alert_start(rate, channel1, channel2, threshold_high << 4,
-            threshold_low << 4, latched)
-
-    def alert_read(self):
-        return super().alert_read() >> 4
-
-
-class ADS1115Async(ADS1115):
-    """ADS1115 driver with interrupt-driven async read.
-
-    The ALERT/RDY pin must be connected and passed as ready_pin.
-    """
-
-    def __init__(self, i2c, address=0x48, gain=1, ready_pin=None):
-        super().__init__(i2c, address, gain)
-        import asyncio
-        import machine
-
-        if ready_pin is None:
-            raise ValueError("ready_pin is required for ADS1115Async")
-        self._ready_pin = ready_pin
-        # ALERT/RDY is active-low; pull-up keeps the line stable between reads
-        self._ready_pin.init(mode=machine.Pin.IN, pull=machine.Pin.PULL_UP)
-        # Thread-safe flag is the correct bridge between an IRQ and asyncio
-        self._ready_flag = asyncio.ThreadSafeFlag()
-        # Attach falling-edge IRQ (pin goes low when conversion is ready)
-        self._ready_irq = self._ready_pin.irq(
-            trigger=machine.Pin.IRQ_FALLING,
-            handler=self._ready_callback,
-        )
-        # Enable conversion-ready mode on ALERT/RDY (datasheet §7.3.8).
-        # Lo_thresh MSB = 0 and Hi_thresh MSB = 1 are the sentinel values.
-        self._write_register(_REGISTER_LOWTHRESH, 0x0000)
-        self._write_register(_REGISTER_HITHRESH, 0x8000)
-        self._lock = asyncio.Lock()
-
-    def _ready_callback(self, pin):
-        """IRQ handler – must be minimal; only sets the flag."""
-        self._ready_flag.set()
-
-    def deinit(self):
-        """Disable the IRQ and break the reference cycle."""
-        if hasattr(self, "_ready_irq") and self._ready_irq is not None:
-            try:
-                self._ready_irq.disable()
-            except Exception:
-                pass
-            try:
-                self._ready_pin.irq(handler=None)
-            except Exception:
-                pass
-            self._ready_irq = None
-
-    def __del__(self):
-        """Clean up resources when the object is reclaimed."""
-        self.deinit()
-
-    async def aioread(self, rate=4, channel1=0, channel2=None):
-        """Start a single-shot conversion and wait for the ALERT/RDY interrupt."""
-        async with self._lock:
-            # Clear any previously set flag (e.g. from noise or previous reads)
-            # before starting the conversion.
-            self._ready_flag.clear()
-            # Start single-shot conversion; CQUE_1CONV keeps ALERT/RDY enabled
-            self._write_register(_REGISTER_CONFIG, (
-                _CQUE_1CONV | _CLAT_NONLAT |
-                _CPOL_ACTVLOW | _CMODE_TRAD | _RATES[rate] |
-                _MODE_SINGLE | _OS_SINGLE | _GAINS[self.gain] |
-                _CHANNELS[(channel1, channel2)]
-            ))
-            # Block this coroutine until the IRQ fires; other coroutines run freely
-            await self._ready_flag.wait()
-            res = self._read_register(_REGISTER_CONVERT)
-
-        return res if res < 32768 else res - 65536
 
